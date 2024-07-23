@@ -1,0 +1,21 @@
+{
+	"name": "2024-1B-T02-EC10-G03",
+	"type": "module",
+	"version": "0.0.1",
+	"scripts": {
+		"dev": "astro dev --host 0.0.0.0",
+		"start": "astro dev",
+		"build": "astro check && astro build",
+		"preview": "astro preview",
+		"astro": "astro"
+	},
+	"dependencies": {
+		"@astrojs/check": "^0.6.0",
+		"@astrojs/starlight": "^0.22.2",
+		"astro": "^4.8.3",
+		"sharp": "^0.33.3",
+		"starlight-image-zoom": "^0.4.0",
+		"starlight-links-validator": "^0.8.0",
+		"typescript": "^5.4.5"
+	}
+}

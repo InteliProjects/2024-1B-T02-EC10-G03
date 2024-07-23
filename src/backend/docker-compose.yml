@@ -1,0 +1,43 @@
+services:
+    postgres:
+        extends:
+            file: docker-compose-db.yml
+            service: postgres
+
+    redis:
+        extends:
+            file: docker-compose-db.yml
+            service: redis
+
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+        tty: true
+        command: sh -c "cargo prisma generate && cargo run --release"
+        volumes:
+            - .:/usr/src/app
+            - .cache/cargo-cache:/usr/local/cargo/target
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        ports:
+            - '3000:3000'
+        environment:
+            RUST_LOG: error
+            DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres?schema=public
+            REDIS_URL: redis://redis:6379
+
+    metabase:
+        image: metabase/metabase
+        container_name: metabase
+        ports:
+            - '3444:3000'  # Mapeando a porta 3000 do container para 3444 na máquina host
+        volumes:
+            - ./metabase-data:/metabase-data
+        restart: unless-stopped
+        environment:
+            MB_JETTY_PORT: 3000  # Porta padrão do Metabase dentro do container
+

@@ -1,0 +1,232 @@
+generator client {
+    provider = "cargo prisma"
+    output   = "../src/db.rs"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Patient {
+    uuid          String          @id @default(uuid())
+    name          String
+    email         String          @unique
+    password      String
+    createdAt     DateTime        @default(now())
+    updatedAt     DateTime        @updatedAt
+    deletedAt     DateTime?
+    Transaction   Transaction[]
+    PatientReport PatientReport[]
+
+    @@index([name, email])
+}
+
+enum EmployeeRole {
+    NURSE
+    PHARMACIST
+    IT
+    ADMIN
+    COMMONER
+}
+
+model Employee {
+    uuid                  String                  @id @default(uuid())
+    role                  EmployeeRole            @default(COMMONER)
+    name                  String
+    email                 String                  @unique
+    password              String
+    createdAt             DateTime                @default(now())
+    updatedAt             DateTime                @updatedAt
+    deletedAt             DateTime?
+    Transaction           Transaction[]
+    OverriddenTransaction OverriddenTransaction[]
+    PyxisReport           PyxisReport[]
+
+    @@index([role, name, email])
+}
+
+model MedicineName {
+    name      String     @id
+    createdAt DateTime   @default(now())
+    Medicine  Medicine[]
+
+    @@index([name])
+}
+
+model Medicine {
+    id            String         @id
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+    Transaction   Transaction[]
+    Inventory     Inventory[]
+    MedicineNames MedicineName[]
+    PyxisReport   PyxisReport[]
+
+    @@index([id])
+}
+
+enum TransactionType {
+    IN
+    OUT
+}
+
+model Transaction {
+    uuid           String          @id @default(uuid())
+    type           TransactionType
+    employee       Employee        @relation(fields: [employeeUuid], references: [uuid])
+    employeeUuid   String
+    patient        Patient         @relation(fields: [patientUuid], references: [uuid])
+    patientUuid    String
+    medicine       Medicine        @relation(fields: [medicineId], references: [id])
+    medicineId     String
+    pyxis          Pyxis           @relation(fields: [pyxisUuid], references: [uuid])
+    pyxisUuid      String
+    quantity       Int
+    validation     Validation?     @relation(fields: [validationUuid], references: [uuid])
+    validationUuid String?
+    createdAt      DateTime        @default(now())
+    PatientReport  PatientReport[]
+
+    @@index([employeeUuid, patientUuid, medicineId, pyxisUuid, validationUuid])
+}
+
+model OverriddenTransaction {
+    uuid           String     @id @default(uuid())
+    employee       Employee   @relation(fields: [employeeUuid], references: [uuid])
+    employeeUuid   String
+    validation     Validation @relation(fields: [validationUuid], references: [uuid])
+    validationUuid String
+    overrideReason String
+    createdAt      DateTime   @default(now())
+
+    @@index([employeeUuid, validationUuid])
+}
+
+enum ValidationStatus {
+    SUSPECT
+    NORMAL
+    UNVERIFIED
+}
+
+model Validation {
+    uuid                  String                  @id @default(uuid())
+    openTime              Int
+    override              Boolean                 @default(false)
+    suposedQuantity       Int
+    patientAcceptance     Boolean                 @default(true)
+    createdAt             DateTime                @default(now())
+    status                ValidationStatus        @default(UNVERIFIED)
+    Transaction           Transaction[]
+    OverriddenTransaction OverriddenTransaction[]
+
+    @@index([status])
+}
+
+model Pyxis {
+    uuid        String        @id @default(uuid())
+    floor       Int
+    block       String
+    extra_data  Json          @default("{}")
+    createdAt   DateTime      @default(now())
+    Inventory   Inventory[]
+    PyxisReport PyxisReport[]
+    Transaction Transaction[]
+
+    @@unique([floor, block])
+    @@index([floor, block])
+}
+
+model Inventory {
+    medicine   Medicine @relation(fields: [medicineId], references: [id])
+    medicineId String
+    pyxis      Pyxis    @relation(fields: [pyxisUuid], references: [uuid])
+    pyxisUuid  String
+    quantity   Int      @default(0)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@id([pyxisUuid, medicineId])
+    @@index([pyxisUuid, medicineId])
+}
+
+enum LogLevel {
+    DEBUG
+    INFO
+    WARNING
+    ERROR
+}
+
+enum LogEvent {
+    PYXIS
+    BACKEND
+    DATABASE
+    TRANSACTION
+    INVENTORY
+    EMPLOYEE
+    PATIENT
+    MEDICINE
+    VALIDATION
+}
+
+model Log {
+    cuid      String   @id @default(cuid())
+    level     LogLevel
+    event     LogEvent
+    data      Json
+    createdAt DateTime @default(now())
+
+    @@index([level, event])
+}
+
+enum PyxisReportType {
+    DATA_INCONSISTENCY
+    NEEDS_REFILL
+    TECHNICAL_ISSUE
+    OTHER
+}
+
+enum ReportStatus {
+    SENT
+    RECEIVED
+    PENDING
+    FINISHED
+}
+
+model PyxisReport {
+    cuid           String          @id @default(cuid())
+    pyxis          Pyxis           @relation(fields: [pyxisUuid], references: [uuid])
+    pyxisUuid      String
+    employee       Employee        @relation(fields: [employeeUuid], references: [uuid])
+    employeeUuid   String
+    medicine       Medicine        @relation(fields: [medicineId], references: [id])
+    medicineId     String
+    type           PyxisReportType
+    status         ReportStatus    @default(SENT)
+    additionalInfo Json            @default("{}")
+    observation    String
+    urgency        Boolean
+    createAt       DateTime        @default(now())
+
+    @@index([pyxisUuid])
+}
+
+enum PatientReportType {
+    NOT_CONSUMED
+    QUANTITY_MISMATCH
+    OTHER
+}
+
+model PatientReport {
+    cuid            String            @id @default(cuid())
+    patient         Patient           @relation(fields: [patientUuid], references: [uuid])
+    patientUuid     String
+    transaction     Transaction       @relation(fields: [transactionUuid], references: [uuid])
+    transactionUuid String
+    status          ReportStatus      @default(SENT)
+    type            PatientReportType
+    observation     String
+    createAt        DateTime          @default(now())
+
+    @@index([patientUuid])
+}
